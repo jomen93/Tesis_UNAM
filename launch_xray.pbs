@@ -1,0 +1,49 @@
+#!/bin/bash
+### Name of run and output files
+#PBS -N raytracing
+#PBS -e raytracing.err
+#PBS -o raytracing.out
+
+##PBS -m ae
+##PBS -M jsmendezh@correo.nucleares.unam.mx
+
+### Queue name and number of nodes:processors per node
+#PBS -q default
+#PBS -r n
+###PBS -l nodes=compute-30:ppn=1
+#PBS -l nodes=1:gen5:ppn=1
+
+### Set environment variables for mpi.
+export PATH=/usr/mpi/intel/mvapich2-1.8/bin:/usr/local/bin:${PATH}
+export MPD_BIN=/usr/local/bin:
+### Set the execution directory. This directory MUST exist on each node.
+WORKDIR="/home/jsmendezh/raytracing/"
+### EXEPATH is the directory where your executable resides
+EXEPATH="/home/jsmendezh/raytracing/"
+### EXE is the name of your executable (compiled mpi program) 
+EXE="raytracing_$1"
+### ARGS is optional. If you don't need it simply leave it empty
+ARGS=""
+### ARGS is also optional.
+INFILE=""
+
+### ---------------------------------------
+### BEGINNING OF EXECUTION
+### ---------------------------------------
+export NPROCS=`wc -l $PBS_NODEFILE |gawk '//{print $1}'`
+export TMP_MACHINES="$WORKDIR/tmp-machines-file.out"
+cat $PBS_NODEFILE | uniq > $TMP_MACHINES
+NP_MPD=`wc -l $TMP_MACHINES |gawk '//{print $1}'`
+echo The master node of this job is `hostname`
+echo The working directory is `echo $PBS_O_WORKDIR`
+echo The node file is $PBS_NODEFILE
+echo "=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-"
+echo This job runs on the following nodes:
+echo `cat $PBS_NODEFILE`
+echo "=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-"
+echo This job has allocated $NPROCS nodes
+echo "=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-"
+echo
+### end of information preample
+$EXEPATH/$EXE
+rm -f $TMP_MACHINES
