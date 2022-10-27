@@ -1,0 +1,33 @@
+ x-size 8.97587E+14 cm 
+ y-size 8.97587E+14 cm 
+ z-size 8.97587E+14 cm 
+ Max-levelCellsAlong_x 256
+ Max-levelCellsAlong_y 256
+ Max-levelCellsAlong_z 256
+ Refinement-Along_x 1
+ Refinement-Along_y 1
+ Refinement-Along_z 1
+ Max-level_resolution 5
+ Left Free flow
+ Right Free flow
+ Front Free flow
+ Back Free flow
+ Bottom Free flow
+ Top Free flow
+ Hydro_equations 5
+ MHD_equations 0
+ Passive_scalars 0
+ Total_equations 5
+ CFL_parameter  0.300
+ Artificial_viscosity  0.005
+ gamma  1.667
+ mu0  1.300
+ mui  0.610
+ ion_thres  10000.0
+ Length  1.49598E+13 cm
+ Density  2.15870E-24 g cm^-3
+ Velocity  1.00000E+05 cm s^-1
+ Pressure  2.15870E-14 erg cm^-3
+ Time  1.49598E+08 s
+ AMU  1.66054E-24 s
+ Time  1.49598E+08 s
