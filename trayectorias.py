@@ -17,7 +17,20 @@ Ry = 30 * AU
 GRAV = 6.67259e-8
 
 def ComputeBinary(phase):
+	"""
+	Compute the positions ad velocities of two objects in a binary
+	system at a given phase
 
+	Parameters
+	----------
+	phase: float
+		the phase of the binary system, in the range [0, 1]
+	
+	Returns
+	-------
+		The x and y positions and velocities of the two objects 
+		in the binary system 
+	"""
 	tol = 1e-10
 
 	mu = (M1*M2)/(M1+M2)
@@ -82,90 +95,74 @@ vel1 = []
 vel2 = []
 
 for i in range(len(time)):
-	phase = (time[i]/Pe + 0.25)% 1
-	#print(f"Fase = {phase:.2f}")
+	phase = ((time[i]*t_sc)%Pe)/Pe +0.25
+	print(f"Fase = {phase:.2f}")
 	r = ComputeBinary(phase)
-	pos1x.append(r[0])
-	pos1y.append(r[1])
-	pos2x.append(r[2])
-	pos2y.append(r[3])
-
-# Ciclo para obtener las distancias entre estrellas de todos los pasos de tiempo 
-dist_step = []
-for i in range(len(pos1x)): 
-	dist_step.append(np.sqrt((pos1x[i] - pos2x[i])**2 + (pos1y[i] - pos2y[i])**2)/AU)
+	pos1x.append(r[0]/AU)
+	pos1y.append(r[1]/AU)
+	pos2x.append(r[2]/AU)
+	pos2y.append(r[3]/AU)
 
 
-pos = 7
+
+pos = 8
+dist = np.sqrt((pos1x[pos] - pos2x[pos])**2 + (pos1y[pos] - pos2y[pos])**2)
 
 # file = "cuts/CutZ."+str(pos).zfill(4)+".bin"
-file = "Cuts/CutZ."+str(pos).zfill(4)+".bin"
-data = read_binary.get_data(file)
-rho = data[0]
-dist = np.sqrt((pos1x[pos] - pos2x[pos])**2 + (pos1y[pos] - pos2y[pos])**2)
-r1 = [pos1y[pos], pos1x[pos]]
-r2 = [pos2y[pos], pos2x[pos]]
-#print(r1, r2)
-rdir = [(r2[0]-r1[0])/dist, (r2[1]-r1[1])/dist] 
+# # file = "CutZ."+str(pos).zfill(4)+".bin"
+# data = read_binary.get_data(file)
+# rho = data[0]
+# r1 = [pos1y[pos], pos1x[pos]]
+# r2 = [pos2y[pos], pos2x[pos]]
+# print(r1, r2)
+# rdir = [(r2[0]-r1[0])/dist, (r2[1]-r1[1])/dist] #####
+# r1[0] += 0.4*rdir[0]*dist
+# r1[1] += 0.4*rdir[1]*dist 
+# r = r1  
+# rnorm = 0
+# ds = 60/256
+# d = list()
+# rho_line = list()
+# while rnorm < dist*0.6:
 
-r = r1  
-rnorm = 0
-ds = 0.01 * AU
-# Se supone que el corte es en el eje z
-nx = data.shape[1]
-dx = x_size/nx
-ny = data.shape[2]
-dy = y_size/ny
-d = list()
-rho_line = list()
-while rnorm < dist:
+# 	r[0] += ds * rdir[0]
+# 	r[1] += ds * rdir[1]
+# 	#print(f"x = {r[0]}, y = {r[1]}")
+# 	rnorm += ds
+# 	d.append(rnorm)
+# 	xi = int(r[0]/60 * nx)
+# 	yi = int(r[1]/60 * ny)
+# 	#print(f"xint = {xi},yint = {yi}")
+# 	print(rho[xi,yi])
+# 	rho_line.append(rho[xi,yi])
 
-	r[0] += ds * rdir[0]
-	r[1] += ds * rdir[1]
-	rnorm += ds
-	d.append(rnorm)
-	xi = int(r[0]/dx)
-	yi = int(r[1]/dy)
-	#print(f"xint = {xi},yint = {yi}")
-	#print(rho[xi,yi])
-	rho_line.append(rho[xi,yi])
+# ind_rhomax = np.argmax(rho_line)
+# rho_bef = np.array(rho_line[ind_rhomax -10 : ind_rhomax-7])
+# rho_aft = np.array(rho_line[ind_rhomax+1 : ind_rhomax+4])
+# compresibility = np.mean(rho_aft)/np.mean(rho_bef)
+# print(f"valor antes del choque = {np.mean(rho_bef)}")
+# print(f"valor después del choque = {np.mean(rho_aft)}")
+# print(f"valor de la compresibilidad = {compresibility}")
+# plt.plot(d, rho_line, "k-", label=f"d = {dist:.2f} AU")
+# plt.plot(d[ind_rhomax], rho_line[ind_rhomax], "ro")
+# plt.plot(d[ind_rhomax -10: ind_rhomax-7], rho_line[ind_rhomax -10 : ind_rhomax-7], "bo")
+# plt.plot(d[ind_rhomax +1: ind_rhomax+4], rho_line[ind_rhomax +1 : ind_rhomax+4], "bo")
+# plt.grid(True)
+# plt.xlabel("Distancia entre estrellas [AU]")
+# plt.ylabel("Densidad [$g/cm^{3}$]")
+# plt.title("Distribución densidad")
+# plt.legend()
+# plt.savefig("Compresibilidad")
+# plt.show()
 
-rho_line = np.array(rho_line)
-
-rho_line_forward = np.roll(rho_line, -1)
-
-mask_monotony_left = (rho_line >= rho_line_forward)
-mask_monotony_left = np.where(mask_monotony_left[1:-1] == False)[0]
-
-#for i in range(len(mask_monotony)):
-#	print(mask_monotony[i])
-
-plt.plot(d, rho_line, "k-", label=f"d = {dist/AU:.2f} AU")
-plt.plot(d[mask_monotony_left[0]], rho_line[mask_monotony_left[0]], "bo")
-plt.plot(d[mask_monotony_left[3]], rho_line[mask_monotony_left[3]], "bo")
-
-print(rho_line[mask_monotony_left[3]]/rho_line[mask_monotony_left[0]])
-plt.semilogy()
-plt.grid(True)
-plt.xlabel("Distancia entre estrellas [AU]")
-plt.ylabel("Densidad [$g/cm^{3}$]")
-plt.title("Distribución densidad")
-plt.legend()
-plt.savefig("Compresibilidad", transparent=True)
-plt.show()
-
-
-plt.plot([pos1x[pos]/AU, pos2x[pos]/AU], [pos1y[pos]/AU, pos2y[pos]/AU], "k--", label=f"d = {dist/AU:,.1f} AU")
-plt.plot([pos1x[pos]/AU], [pos1y[pos]/AU], "k.")
-plt.plot([pos2x[pos]/AU], [pos2y[pos]/AU], "k.")
-plt.plot(np.array(pos1x)/AU, np.array(pos1y)/AU, "b-",label="Trayectoria 1")
-plt.plot(np.array(pos2x)/AU, np.array(pos2y)/AU, "r", label ="Trayectoria 2")
-print(f"Distancia entre estrellas = {dist/AU:.2f} en el tiempo = {pos}")
-
+print(f"Distancia entre estrellas = {dist:.2f} en el tiempo = {pos}")
+plt.plot([pos1x[pos], pos2x[pos]], [pos1y[pos], pos2y[pos]], "k--", label=f"d = {dist:.2f} AU")
+plt.plot(pos1x, pos1y, "ro", markersize=1)
+plt.plot(pos2x, pos2y, "bo", markersize=1)
 plt.grid(True)
 plt.axis("square")
-plt.xlim([0, 50])
-plt.ylim([0, 50])
+plt.xlim([0, 60])
+plt.ylim([0, 60])
 plt.xlabel("x[AU]")
 plt.xlabel("y[AU]")
 plt.title(f"Trayectorias t = {time[pos]/YR:.2f} años")
