@@ -1,99 +1,81 @@
+#!/usr/bin/env python
+# -*- coding: utf-8 -*-
+"""
+Author: Johan Méndez
+Created on: 2022-02-15
+Description: File to calculate compresibility limit in the binary 
+start systems 
+"""
 import read_binary
 from Globals import *
-
 import matplotlib.pyplot as plt
 import matplotlib as mpl
 import numpy as np
 from matplotlib.colors import LogNorm
 from matplotlib import cm
 
-
 # Set latex configuration
 mpl.rc("text", usetex=True)
 mpl.rc("font", **{"family":"serif", "serif":["Computer Modern"]})
 
-# rotation = "state_AXIS_X_10"
-# rotation = "initial_state/"
-# rotation = "Y_30_X_60_n/"
-# rotation = ""
-# rotation = "X_30/"
-# rotation = "X_60/"
-# rotation = "X_90/"
-#rotation = "k_0/"
-#rotation = "k_25/"
-#rotation = "k_250/"
-#rotation = "k_1000/"
-rotation = "k_2500/"
-n = 88
-# file_xray = rotation+"/XrayX_raytracing."+str(n).zfill(4)+".bin"
-# file_xray_reference = rotation+"/XrayX_raytracing.0001.bin"
-file_xray = rotation+"XrayX_raytracing."+str(n).zfill(4)+".bin"
-file_xray_reference = rotation+"XrayX_raytracing.0001.bin"
-# file_xray = rotation+"XrayX."+str(n).zfill(4)+".bin"
-# file_xray_reference = rotation+"XrayX.0001.bin"
+rotation_options = {
+	"X_30":"X_30",
+	"X_60":"X_60",
+	"X_90":"X_90",
+	"k_0":"k_0",
+	"k_25":"k_25",
+	"k_250":"k_250",
+	"k_1000":"k_1000",
+	"k_2500":"k_2500",
+}
 
-data_xray = read_binary.get_data_xray(file_xray)
-# data_xray = np.transpose(data_xray, [1,0])
+def plot_xray(n, rotation, save_image = False):
+	"""
+	This function is used to plot a X-ray map from a binary file.
+	It uses the matplotlib library to create the plot and the 
+	get_data_xray function to read the binary file
 
-reference_xray = read_binary.get_data_xray(file_xray_reference)
-vmin = np.min(reference_xray)+0.1
-vmax = np.max(reference_xray)
-cmap = cm.get_cmap("inferno")
-# data_xray[data_xray < 1e10] = vmin
-name = "X_ray_"+str(n).zfill(4)
-fileout = name+".png"
-plt.figure()
-cmap  = cm.inferno
-cmap.set_bad("black")
-im = plt.imshow(data_xray, 
-				cmap=cmap, 
-				# extent=[0,x_size/AU, 0,y_size/AU], 
-				origin="lower",
-				interpolation="Nearest",
-				# norm=LogNorm(vmin=1e-10,vmax=1e2),
-				norm=LogNorm(vmin=1e25,vmax=1e28),
-				#vmax=max_ref, 
-				#vmin=min_ref			
-				)
-plt.xlabel("x[AU]")
-plt.ylabel("y[AU]")
-plt.title("Xray map")
-plt.colorbar(im, extend="both")
-plt.savefig(fileout, transparent=True)
-plt.show()
+	Parameters
+	----------
+	n: int
+		The number of the X-ray file.
+	rotation: str
+		The rotation of the image, it could be a dictionary name
+	save_image: bool, optional
+		A flag to indicate wheter the image should be saved or not 
+		(Default is False)
+	
+	Returns
+	-------
+	None
+		The function creates and displays the image should be saves the 
+		image if save_image is set to True
+	"""
+	file_xray = f"{rotation}/XrayX_raytracing.{str(n).zfill(4)}.bin"
+	data_xray = read_binary.get_data_xray(file_xray)
+	cmap = cm.get_cmap("inferno").copy()
+	cmap.set_bad("black")
+	name = f"X_ray_{str(n).zfill(4)}"
+	fileout = f"{name}.png"
+	plt.figure()
+	im = plt.imshow(data_xray, 
+					cmap=cmap, 
+					extent=[0,x_size/AU, 0,y_size/AU], 
+					origin="lower",
+					interpolation="Nearest",
+					norm=LogNorm(vmin=1e25,vmax=1e28),	
+					)
+	plt.xlabel("x[AU]")
+	plt.ylabel("y[AU]")
+	xray_total = data_xray.sum()
+	plt.title(f"Xray map = {xray_total:.2e}")
+	plt.colorbar(im, extend="both")
+	if save_image == True:
+		plt.savefig(fileout, transparent=True)
+	plt.show()
 
-print(data_xray.sum())
+n = 15
+rotation = rotation_options["k_0"]
 
-###
-
-
-# Paso 1. utilizar el coldens para hacer la proyeccion de la densidad y comparar las
-# regiones de emisión con el mapa de rayos x que se tiene 
-
-# Revisión profundidad óptica
-
-# Paso 2. Hacer otra simulación con parámetros mas violentos, para ver si 
-# se tiene una mayor variación en la curva de rayos x
-
-
-# The spherical wind parameters of wind WC7
-
-# wind1%xc = x1 
-# wind1%yc = y1 
-# wind1%zc = z1
-# wind1%radius = 2.0 * AU
-# wind1%mdot = 1e-5 * MSUN/YR
-# wind1%vinf = 2000 * KPS
-# wind1%temp = 1.0e5
-# wind1%mu = mui
-
-# ! The spherical wind parameters of wind O4-5
-# wind2%xc = x2 
-# wind2%yc = y2 
-# wind2%zc = z2
-# wind2%radius = 2.0 * AU
-# wind2%mdot = 1e-6 * MSUN/YR
-# wind2%vinf = 1000 * KPS
-# wind2%temp = 1.0e4
-# wind2%mu = mui
+plot_xray(n, rotation)
 
