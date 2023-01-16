@@ -26,7 +26,7 @@ gamma 		= float(parameters[22].split()[1])
 mu0 		= float(parameters[23].split()[1]) 
 mui 		= float(parameters[24].split()[1]) 
 t_sc 		= float(parameters[-1].split()[1]) 
- 
+
 AMU  = 1.660538782e-24
 KB   = 1.380650400e-16
 PC   = 3.085677588e+18

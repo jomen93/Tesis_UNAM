@@ -3,6 +3,7 @@ import matplotlib.pyplot as plt
 from Globals import *
 import read_binary
 import matplotlib as mpl
+from Sistema_Binario import BinarySystem
 
 # Set latex configuration
 mpl.rc("text", usetex=True)
@@ -14,99 +15,30 @@ Pe = 10.98 * YR
 ecc = 0.61
 Rx = 30 * AU
 Ry = 30 * AU
-GRAV = 6.67259e-8
-
-def ComputeBinary(phase):
-	"""
-	Compute the positions ad velocities of two objects in a binary
-	system at a given phase
-
-	Parameters
-	----------
-	phase: float
-		the phase of the binary system, in the range [0, 1]
-	
-	Returns
-	-------
-		The x and y positions and velocities of the two objects 
-		in the binary system 
-	"""
-	tol = 1e-10
-
-	mu = (M1*M2)/(M1+M2)
-	a = (Pe*Pe*GRAV*(M1+M2)/(4*PI*PI))**(1.0/3.0)
-	L = mu*(1-ecc)*a*np.sqrt((1+ecc)/(1-ecc)*GRAV*(M1+M2)/a)
-
-	# Anomalía media
-	M = 2*PI*phase
-
-	if M == 0:
-		E = 0
-
-	if ecc > 0.8:
-		x = np.copysign(PI, M)
-	else:
-		x = M
-
-	rel_err = 2*tol
-
-	while rel_err > tol:
-		xn = x - (x-ecc*np.sin(x)-M)/(1-ecc*np.cos(x))
-		if x != 0:
-			rel_err = abs((xn-x)/x)
-			x = xn
-
-	E = x
-	theta = 2.0*np.arctan(np.sqrt((1+ecc)/(1-ecc))*np.tan(E/2))
-	rad = a*(1.0-ecc*ecc)/(1+ecc*np.cos(theta))
-
-	thetadot = L/(mu*rad**2)
-	raddot = a*ecc*np.sin(theta)*(1-ecc**2)/(1+ecc*np.cos(theta))**2 * thetadot
-
-	radx = rad*np.cos(theta)
-	rady = rad*np.sin(theta)
-	x1 = Rx - M2/(M1+M2)*radx
-	y1 = Ry - M2/(M1+M2)*rady
-	x2 = Rx + M1/(M1+M2)*radx
-	y2 = Ry + M1/(M1+M2)*rady
-
-	vx = raddot*np.cos(theta)-rad*thetadot*np.sin(theta)
-	vy = raddot*np.sin(theta)+rad*thetadot*np.cos(theta)
-	vx1 = -M2/(M1+M2)*vx
-	vy1 = -M2/(M1+M2)*vy
-	vx2 = M1/(M1+M2)*vx
-	vy2 = M1/(M1+M2)*vy
-
-	return x1, y1, x2, y2, vx1, vy1, vx2, vy2
-
-dtout = 0.1 * YR
-tfin = 2 * 10.98 * YR
-
-nout = int(tfin/dtout)
-
-time = np.linspace(0, tfin, nout)
-
-# ciclo para obtener las posiciones
-pos1x = []
-pos1y = []
-pos2x = []
-pos2y = []
-vel1 = []
-vel2 = []
-
-for i in range(len(time)):
-	phase = ((time[i]*t_sc)%Pe)/Pe +0.25
-	print(f"Fase = {phase:.2f}")
-	r = ComputeBinary(phase)
-	pos1x.append(r[0]/AU)
-	pos1y.append(r[1]/AU)
-	pos2x.append(r[2]/AU)
-	pos2y.append(r[3]/AU)
-
-
-
 pos = 8
-dist = np.sqrt((pos1x[pos] - pos2x[pos])**2 + (pos1y[pos] - pos2y[pos])**2)
+
+binary = BinarySystem(M1, M2, Pe, ecc)
+x1, y1, x2, y2 = binary.trajectories()
+
+plt.plot(x1, y1, "ro", markersize=1)
+plt.plot(x2, y2, "bo", markersize=1)
+plt.grid(True)
+plt.axis("square")
+plt.xlim([0, 60])
+plt.ylim([0, 60])
+plt.xlabel("x[AU]")
+plt.xlabel("y[AU]")
+plt.title(f"Trayectorias t = {binary.time[pos]/YR:.2f} años")
+plt.show()
+
+
+
+
+
+
+# dist = np.sqrt((pos1x[pos] - pos2x[pos])**2 + (pos1y[pos] - pos2y[pos])**2)
+# print(f"Distancia entre estrellas = {dist:.2f} en el tiempo = {pos}")
+# plt.plot([pos1x[pos], pos2x[pos]], [pos1y[pos], pos2y[pos]], "k--", label=f"d = {dist:.2f} AU")
 
 # file = "cuts/CutZ."+str(pos).zfill(4)+".bin"
 # # file = "CutZ."+str(pos).zfill(4)+".bin"
@@ -155,20 +87,20 @@ dist = np.sqrt((pos1x[pos] - pos2x[pos])**2 + (pos1y[pos] - pos2y[pos])**2)
 # plt.savefig("Compresibilidad")
 # plt.show()
 
-print(f"Distancia entre estrellas = {dist:.2f} en el tiempo = {pos}")
-plt.plot([pos1x[pos], pos2x[pos]], [pos1y[pos], pos2y[pos]], "k--", label=f"d = {dist:.2f} AU")
-plt.plot(pos1x, pos1y, "ro", markersize=1)
-plt.plot(pos2x, pos2y, "bo", markersize=1)
-plt.grid(True)
-plt.axis("square")
-plt.xlim([0, 60])
-plt.ylim([0, 60])
-plt.xlabel("x[AU]")
-plt.xlabel("y[AU]")
-plt.title(f"Trayectorias t = {time[pos]/YR:.2f} años")
-plt.legend()
-plt.savefig("trayectorias")
-plt.show()
+# print(f"Distancia entre estrellas = {dist:.2f} en el tiempo = {pos}")
+# plt.plot([pos1x[pos], pos2x[pos]], [pos1y[pos], pos2y[pos]], "k--", label=f"d = {dist:.2f} AU")
+# plt.plot(pos1x, pos1y, "ro", markersize=1)
+# plt.plot(pos2x, pos2y, "bo", markersize=1)
+# plt.grid(True)
+# plt.axis("square")
+# plt.xlim([0, 60])
+# plt.ylim([0, 60])
+# plt.xlabel("x[AU]")
+# plt.xlabel("y[AU]")
+# plt.title(f"Trayectorias t = {time[pos]/YR:.2f} años")
+# plt.legend()
+# # plt.savefig("trayectorias")
+# plt.show()
 
 
 
