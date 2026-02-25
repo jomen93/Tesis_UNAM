@@ -68,8 +68,8 @@ module userconds
   real::wind1_zc = zphystot/2
   real::wind1_vz = 0
   real::wind1_radius = 2.0 * AU
-  real::wind1_mdot = 1e-5 * MSUN/YR
-  real::wind1_vinf = 2000 * KPS
+  real::wind1_mdot = 4.3e-5 * MSUN/YR
+  real::wind1_vinf = 2860 * KPS
   real::wind1_temp = 1.0e5
   real::wind1_mu = mui
 
@@ -77,8 +77,8 @@ module userconds
   real::wind2_zc = zphystot/2
   real::wind2_vz = 0
   real::wind2_radius = 2.0 * AU
-  real::wind2_mdot = 1e-6 * MSUN/YR
-  real::wind2_vinf = 2000 * KPS
+  real::wind2_mdot = 1.5e-6 * MSUN/YR
+  real::wind2_vinf = 3000 * KPS
   real::wind2_temp = 1.0e5
   real::wind2_mu = mui
 

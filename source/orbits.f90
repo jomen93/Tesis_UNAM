@@ -46,12 +46,12 @@ module orbits
 
   ! Orbital parameters of the binary system
   ! All quantities in cgs
-  real, parameter :: M1  = 31.0 * MSUN   ! Mass of primary
-  real, parameter :: M2  = 12.0 * MSUN   ! Mass of secondary
-  real, parameter :: Pe  = 10.98 * YR    ! Period
-  real, parameter :: ecc = 0.61        ! Eccentricity
-  real, parameter :: Rx  = 30.0 * AU     ! Barycenter x coord
-  real, parameter :: Ry  = 30.0 * AU     ! Barycenter y coord
+  real, parameter :: M1  = 20.0 * MSUN   ! Mass of primary
+  real, parameter :: M2  = 50.0 * MSUN   ! Mass of secondary
+  real, parameter :: Pe  = 7.93 * YR     ! Period
+  real, parameter :: ecc = 0.88          ! Eccentricity
+  real, parameter :: Rx  = 40.0 * AU     ! Barycenter x coord
+  real, parameter :: Ry  = 40.0 * AU     ! Barycenter y coord
 
 contains
 

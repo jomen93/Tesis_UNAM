@@ -37,8 +37,8 @@ module parameters
   ! Execution parameters
   ! ============================================
 
-  real, parameter :: tfin = 2 * 10.98 * YR    !< Final integration time (s)
-  real, parameter :: dtout = 0.1 * YR     !< Time between data dumps (s)
+  real, parameter :: tfin = 1.0 * 7.93 * YR    !< Final integration time (s)
+  real, parameter :: dtout = 0.05 * YR     !< Time between data dumps (s)
 
   !> Perform warm start?
   logical, parameter :: dowarm = .false.
@@ -46,21 +46,21 @@ module parameters
   character(*), parameter :: warm_file = ""!"/storage2/jsmendezh/WR140/data/State.0064.dat"
 
   !> Number of MPI processes to launch
-  integer, parameter :: nProcs = 32
+  integer, parameter :: nProcs = 16
 
   !> Available memory (RAM) *per process*, in MB
   ! This will determine the number of blocks allocated by the code
   ! Note that 1 MB = 1024 kB = 1024*1024 or 2^20 bytes
-  real, parameter :: RAM_per_proc = 1024
+  real, parameter :: RAM_per_proc = 1500.0
  
   ! ============================================
   ! Adaptive Mesh parameters
   ! ============================================
 
   ! Simulation domain physical size (all in cgs)
-  real, parameter :: xphystot = 60.0 * AU      !< Physical domain size along x
-  real, parameter :: yphystot = 60.0 * AU      !< Physical domain size along y
-  real, parameter :: zphystot = 60.0 * AU      !< Physical domain size along z
+  real, parameter :: xphystot = 80.0 * AU      !< Physical domain size along x
+  real, parameter :: yphystot = 80.0 * AU      !< Physical domain size along y
+  real, parameter :: zphystot = 80.0 * AU      !< Physical domain size along z
 
   ! Mesh Geometry
   
