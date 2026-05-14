@@ -133,12 +133,13 @@ contains
     integer :: nb, bID, i, j, k
     real :: xc, yc, zc, vwx, vwy, vwz, radius, mdot, vinf, temp
     real :: dens, vx, vy, vz, pres, x, y, z, dist, mu, metal
+    real :: dist_min, safe_dist  ! For limiting 1/r^2 divergence
+    real :: r_inner, r_outer, blend_weight, t  ! For smooth transition zone
+    real :: primit_wind(neqtot), primit_current(neqtot), primit_mixed(neqtot)
     real :: primit(neqtot)
     real :: zone(6)
     integer :: zlevel
-
-    write(logu,*) ""
-    write(logu,'(1x,a)') "> Imposing spherical wind source ..."
+    integer :: eq, istat
 
     ! Unpack wind source parameters
     xc = wind_params%xc
@@ -155,18 +156,22 @@ contains
     mu = wind_params%mu
     metal = wind_params%metal
 
-    ! Report wind parameters
-    ! TODO: REPORT ONLY ON FIRST CALL
-    write(logu,'(1x,a,es12.5)') "Mdot = ", mdot
-    write(logu,'(1x,a,es12.5)') "vinf = ", vinf
-    write(logu,'(1x,a,es12.5)') "Radius = ", radius
-    write(logu,'(1x,a,es12.5)') "Rho(R) = ", mdot/vinf/radius/radius/(4*PI)
-    write(logu,'(1x,a,es12.5)') "Temp = ", temp
-    write(logu,'(1x,a,es12.5,1x,es12.5,1x,es12.5)') "Location: ", xc, yc, zc
+    ! Define smooth transition zone (Enfoque B)
+    ! Inner radius: 70% of injection radius (pure wind zone)
+    ! Outer radius: 100% of injection radius (transition boundary)
+    r_inner = 0.7 * radius
+    r_outer = radius
 
-    ! Refine the zone around the wind source to provide adequate resolution
+    ! Report parameters and refine the zone around the wind source only once
     if (it.eq.0) then
-      write(logu,*) "(winds)it=",it
+      write(logu,*) ""
+      write(logu,'(1x,a)') "> Imposing spherical wind source ..."
+      write(logu,'(1x,a,es12.5)') "Mdot = ", mdot
+      write(logu,'(1x,a,es12.5)') "vinf = ", vinf
+      write(logu,'(1x,a,es12.5)') "Radius = ", radius
+      write(logu,'(1x,a,es12.5)') "Rho(R) = ", mdot/vinf/radius/radius/(4*PI)
+      write(logu,'(1x,a,es12.5)') "Temp = ", temp
+      write(logu,'(1x,a,es12.5,1x,es12.5,1x,es12.5)') "Location: ", xc, yc, zc
       zone(1) = xc - radius
       zone(2) = xc + radius
       zone(3) = yc - radius
@@ -174,7 +179,7 @@ contains
       zone(5) = zc - radius
       zone(6) = zc + radius
       zlevel = maxlev
-      call refineZone (zone, zlevel)  
+      call refineZone (zone, zlevel)
     end if
 
     ! Impose flow conditions, where applicable
@@ -190,38 +195,83 @@ contains
               x = x*l_sc;  y = y*l_sc;  z = z*l_sc
               dist = sqrt((x-xc)**2+(y-yc)**2+(z-zc)**2)   ! phys units
 
-              if (dist.lt.radius) then
+              ! ENFOQUE B: SMOOTH TRANSITION ZONE
+              ! Only process cells within outer radius (includes transition zone)
+              if (dist.lt.r_outer) then
 
-                  ! Calculate wind density, velocity and pressure in this cell
-                  dens = mdot/vinf/dist/dist/(4.0*PI)
-                  vx = vinf*(x-xc)/dist + vwx
-                  vy = vinf*(y-yc)/dist + vwy
-                  vz = vinf*(z-zc)/dist + vwz
+                  ! === 1. Calculate WIND primitives ===
+                  ! CRITICAL FIX: Limit minimum distance to avoid 1/r^2 divergence
+                  dist_min = 0.5 * r_inner  ! Minimum distance = 50% of inner radius
+                  safe_dist = max(dist, dist_min)
+
+                  dens = mdot/vinf/safe_dist/safe_dist/(4.0*PI)
+                  vx = vinf*(x-xc)/safe_dist + vwx
+                  vy = vinf*(y-yc)/safe_dist + vwy
+                  vz = vinf*(z-zc)/safe_dist + vwz
                   pres= dens/(mu*AMU)*KB*temp
 
-                  ! DEBUG
-!                  write(logu,*) dens, vx/1e5, vy/1e5, vz/1e5, pres
-                  ! DEBUG
-
-                  ! Scale primitives
-                  primit(1) = dens/d_sc
-                  primit(2) = vx/v_sc
-                  primit(3) = vy/v_sc
-                  primit(4) = vz/v_sc
-                  primit(5) = pres/p_sc
+                  ! Scale wind primitives
+                  primit_wind(1) = dens/d_sc
+                  primit_wind(2) = vx/v_sc
+                  primit_wind(3) = vy/v_sc
+                  primit_wind(4) = vz/v_sc
+                  primit_wind(5) = pres/p_sc
 #ifdef PASBP
                   ! Magnetic field
-                  primit(6) = 0.0
-                  primit(7) = 0.0
-                  primit(8) = 0.0
+                  primit_wind(6) = 0.0
+                  primit_wind(7) = 0.0
+                  primit_wind(8) = 0.0
 #endif
                   ! Passive scalar for metalicity
                   if (cooling_type.eq.COOL_TABLE_METAL) then
-                    primit(metalpas) = metal*primit(1)
+                    primit_wind(metalpas) = metal*primit_wind(1)
                   end if
 
-                  ! Convert primitives and set flow vars for this cell
-                  call prim2flow( primit, uvars(nb,:,i,j,k) )
+                  ! === 2. Safety check and get CURRENT primitives ===
+                  ! CRITICAL: Check if current state has valid density BEFORE calling flow2prim
+                  ! (flow2prim aborts if density is zero)
+                  if (uvars(nb,1,i,j,k).le.0.0) then
+                    ! Current density is zero or negative - use 100% wind
+                    blend_weight = 1.0
+                  else
+                    ! Get current primitives from cell
+                    call flow2prim(uvars(nb,:,i,j,k), primit_current, istat)
+
+                    ! === 3. Calculate blending weight ===
+                    ! SAFETY: If conversion failed (istat != 0), use pure wind
+                    if (istat.ne.0) then
+                      ! Current state conversion failed - use 100% wind
+                      blend_weight = 1.0
+                    else if (dist.lt.r_inner) then
+                      ! Pure wind zone (inside inner radius)
+                      blend_weight = 1.0
+                    else
+                      ! Transition zone (between r_inner and r_outer)
+                      ! Use smooth cubic Hermite function: weight(t) = 3t^2 - 2t^3
+                      ! where t goes from 0 (at r_inner) to 1 (at r_outer)
+                      t = (dist - r_inner) / (r_outer - r_inner)
+                      ! Invert: weight=1 at r_inner, weight=0 at r_outer
+                      blend_weight = 1.0 - (3.0*t*t - 2.0*t*t*t)
+                      blend_weight = max(0.0, min(1.0, blend_weight))
+                    end if
+                  end if  ! Close the else block for valid density
+
+                  ! === 4. Blend primitives ===
+                  if (blend_weight.ge.0.9999) then
+                    ! Pure wind (or nearly so) - no need to blend
+                    do eq=1,neqtot
+                      primit_mixed(eq) = primit_wind(eq)
+                    end do
+                  else
+                    ! Blend: primit_mixed = weight * wind + (1 - weight) * current
+                    do eq=1,neqtot
+                      primit_mixed(eq) = blend_weight * primit_wind(eq) + &
+                                         (1.0 - blend_weight) * primit_current(eq)
+                    end do
+                  end if
+
+                  ! === 5. Apply blended solution to cell ===
+                  call prim2flow(primit_mixed, uvars(nb,:,i,j,k))
 
               end if
 

@@ -14,11 +14,11 @@ mpl.rc("font", **{"family":"serif", "serif":["Computer Modern"]})
 
 # path to data
 xpath_k_100 = "k/"
-xpath_k_0 = "k_0/"
-xpath_k_25 = "k_25/"
-xpath_k_250 = "k_250/"
-xpath_k_1000 = "k_1000/"
-xpath_k_2500 = "k_2500/"
+xpath_k_0 = "resultados/k_0/"
+xpath_k_25 = "resultados/k_25/"
+xpath_k_250 = "resultados/k_250/"
+xpath_k_1000 = "resultados/k_1000/"
+xpath_k_2500 = "resultados/k_2500/"
 xpath = "initial_state/"
 xpath_30 = "X_30/"
 xpath_60 = "X_60/"

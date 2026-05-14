@@ -1,0 +1,23 @@
+# ── Simulation output (too large for git) ─────────────────────────────────────
+data/
+resultados/
+
+# ── Test run output (binary snapshots + generated images — regeneratable) ──────
+tests/single_wind/data/
+tests/single_wind/images/
+
+# ── Compiled binaries ─────────────────────────────────────────────────────────
+walicxe3d
+raytracing_c
+*.o
+*.mod
+
+# ── Python cache ──────────────────────────────────────────────────────────────
+__pycache__/
+*.pyc
+
+# ── Fortran backup files ──────────────────────────────────────────────────────
+source/*.backup*
+
+# ── Local Claude session state ────────────────────────────────────────────────
+.claude/

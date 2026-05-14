@@ -3,13 +3,13 @@
 # ==============================================================================
 
 # Name of the compiled binary
-PROGRAM= raytracing_test
+PROGRAM= walicxe3d
 
 # Non-MPI Compiler
 # Supported options: gfortran, ifort
 # For MPI, mpfi90 is used
-COMPILER= ifort
-#COMPILER= gfortran
+#COMPILER= ifort
+COMPILER= gfortran
 
 # Additional user compiler flags
 ## ifort-compatible flags

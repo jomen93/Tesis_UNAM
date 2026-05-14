@@ -44,14 +44,16 @@ module orbits
   ! This section defines a binary system, in the center of momentum frame
   ! (i.e., the barycentric velocity is assumed to be zero)
 
-  ! Orbital parameters of the binary system
+  ! Orbital parameters of the binary system - WR 140 OBSERVED VALUES
+  ! Based on Monnier et al. 2021 (MNRAS 504, 5221) and JWST 2024-2025
   ! All quantities in cgs
-  real, parameter :: M1  = 20.0 * MSUN   ! Mass of primary
-  real, parameter :: M2  = 50.0 * MSUN   ! Mass of secondary
-  real, parameter :: Pe  = 7.93 * YR     ! Period
-  real, parameter :: ecc = 0.88          ! Eccentricity
+  real, parameter :: M1  = 10.0 * MSUN   ! Mass of WR (WC7pd) - observed: 10.3 M☉
+  real, parameter :: M2  = 30.0 * MSUN   ! Mass of O star (O5.5fc) - observed: 29.3 M☉
+  real, parameter :: Pe  = 7.93 * YR     ! Period - observed: 7.93 yr
+  real, parameter :: ecc = 0.90          ! Eccentricity - observed: 0.8993
   real, parameter :: Rx  = 40.0 * AU     ! Barycenter x coord
   real, parameter :: Ry  = 40.0 * AU     ! Barycenter y coord
+  ! Resulting periastron: ~1.36 AU, apastron: ~25.7 AU
 
 contains
 
@@ -94,8 +96,10 @@ contains
     call solveKepler (M, ecc, E)
 
     ! Compute radial position and angular position (true anomaly) of reduced
-    ! mass
-    theta = 2.0*atan(sqrt((1+ecc)/(1-ecc))*tan(E/2))
+    ! mass. atan2 is required here: atan would return wrong quadrant for E > pi
+    ! (second half of the orbit), flipping the y-component of all positions and
+    ! velocities.
+    theta = 2.0*atan2(sqrt(1.0+ecc)*sin(E/2.0), sqrt(1.0-ecc)*cos(E/2.0))
     rad = a*(1.0-ecc*ecc)/(1+ecc*cos(theta))
 
     ! Compute radial and angular velocities of reduced mass
@@ -121,18 +125,6 @@ contains
     vx2 = m1/(m1+m2)*vx
     vy2 = m1/(m1+m2)*vy
    
-    ! write(logu, *) "phase = ", phase
-    ! write(logu, *) "x1 = ", x1/AU, "y1 = ", y1/AU
-    ! write(logu, *) "x2 = ", x2/AU, "y1 = ", y2/AU
-    ! write(logu, *) "stars distance = ", sqrt((x1-x2)**2+(y1-y2)**2)/AU
-    ! write(logu, *) "vx1 = ", vx1/KPS, "vy1 = ", vy1/KPS
-    ! write(logu, *) "vx2 = ", vx2/KPS, "vy2 = ", vy2/KPS
-
-    ! write(logu,*) phase, x1/AU, y1/AU, sqrt(x1**2+y1**2)/AU, &
-    !         vx1/KPS, vy1/KPS, sqrt(vx1**2+vy1**2)/KPS, &
-    !         x2/AU, y2/AU, sqrt(x2**2+y2**2)/AU, &
-    !         vx2/KPS, vy2/KPS, sqrt(vx2**2+vy2**2)/KPS
-
   end subroutine computeBinary
 
   ! ============================================
@@ -147,31 +139,42 @@ contains
   subroutine solveKepler (M, ecc, E)
 
     implicit none
-  
+
     real, intent(in) :: M
     real, intent(in) :: ecc
     real, intent(out) :: E
 
-   real, parameter :: tol = 1e-10
-   real :: x, xn, rel_err
+    real, parameter :: tol = 1e-10
+    integer, parameter :: max_iter = 100
+    real :: x, xn, rel_err
+    integer :: iter
 
     if (M.eq.0.0) then
       E = 0.0
       return
     end if
 
+    ! For high eccentricity (e > 0.8), pi is a better initial guess than M
     if (ecc>0.8) then
       x = sign(PI,M)
     else
       x = M
     end if
 
+    iter = 0
     rel_err = tol*2.0
-    do while(rel_err.gt.tol)
+    do while(rel_err.gt.tol .and. iter.lt.max_iter)
       xn = x - (x-ecc*sin(x)-M)/(1.0-ecc*cos(x))
       if (x.ne.0.0) rel_err = abs((xn-x)/x)
       x = xn
+      iter = iter + 1
     end do
+
+    if (iter.ge.max_iter) then
+      write(*,'(a,i0,a,f10.6,a,f6.4)') &
+        "WARNING: solveKepler did not converge after ", max_iter, &
+        " iterations. M=", M, " ecc=", ecc
+    end if
 
     E = x
     return

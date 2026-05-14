@@ -64,26 +64,31 @@ module userconds
   type(spherical_wind_type) :: wind1
   type(spherical_wind_type) :: wind2
 
-  ! The spherical wind parameters of wind WC7
+  ! The spherical wind parameters of wind WC7 (Wolf-Rayet)
+  ! WR 140 OBSERVED VALUES - OPCION 2: Radios aumentados para mejor resolución
+  ! Con radios de 1.5 AU: ~7 celdas por radio (mejor que 2-3 con 0.5 AU)
+  ! NOTA: En periastron (1.36 AU), los vientos SE SOLAPARAN (1.5 AU > 0.68 AU)
+  !       pero el Enfoque B (zona de transición suave) manejará la mezcla gradualmente
   real::wind1_zc = zphystot/2
   real::wind1_vz = 0
-  real::wind1_radius = 2.0 * AU
-  real::wind1_mdot = 4.3e-5 * MSUN/YR
-  real::wind1_vinf = 2860 * KPS
+  real::wind1_radius = 1.5 * AU        ! AUMENTADO: Mejor resolución (era 0.5 AU)
+  real::wind1_mdot = 1.0e-5 * MSUN/YR  ! Observed range: 1-3e-5, using conservative value
+  real::wind1_vinf = 2860 * KPS        ! Observed: ~2860 km/s (JWST 2024)
   real::wind1_temp = 1.0e5
   real::wind1_mu = mui
 
-  ! The spherical wind parameters of wind O4-5
+  ! The spherical wind parameters of wind O5.5fc (O star)
+  ! WR 140 OBSERVED VALUES - OPCION 2: Radios aumentados para mejor resolución
   real::wind2_zc = zphystot/2
   real::wind2_vz = 0
-  real::wind2_radius = 2.0 * AU
-  real::wind2_mdot = 1.5e-6 * MSUN/YR
-  real::wind2_vinf = 3000 * KPS
+  real::wind2_radius = 1.5 * AU        ! AUMENTADO: Mejor resolución (era 0.5 AU)
+  real::wind2_mdot = 1.5e-6 * MSUN/YR  ! Observed range: 1-5e-6, using mid-range value
+  real::wind2_vinf = 3000 * KPS        ! Observed: ~2500-3000 km/s
   real::wind2_temp = 1.0e5
   real::wind2_mu = mui
 
 
-  real :: phase
+  real :: phase = 0.0   ! Initial orbital phase: 0.0 = periastron, 0.5 = apastron
   real :: x1, y1, x2, y2
   real :: vx1, vx2, vy1, vy2
   
@@ -220,133 +225,6 @@ contains
     ! ============================================
 
   end subroutine userBoundary
-
-subroutine imposeSphere (uvars)
- 
-    use parameters
-    use globals
-    implicit none
-
-    real, intent(inout) :: uvars(nbMaxProc, neqtot, &
-                           nxmin:nxmax, nymin:nymax, nzmin:nzmax)
-
-    integer :: nb, bID, i, j, k
-    real :: vx, vy, vz, pres, x, y, z, dist, dist1, metal
-    real :: primit(neqtot)
-    real :: zone(6)
-    integer :: zlevel
-
-    real :: radius = 10 * AU
-    real :: radius1 = 5 * AU
-    real :: xc = xphystot/2 
-    real :: yc = yphystot/2
-    real :: zc = zphystot/2
-    real :: xc1 = 3*xphystot/4
-    real :: yc1 = yphystot/2
-    real :: zc1 = zphystot/2
-    real :: temp = 1e8
-    real :: density = 1e-14
-    real :: temp1 = 1e2
-    real :: density1 = 1e-14
-
-
-
-    write(logu,*) ""
-    write(logu,'(1x,a)') "> Imposing sphere ..."
-
-    ! Refine the zone around the wind source to provide adequate resolution
-    if (it.eq.0) then
-      write(logu,*) "(winds)it=",it
-      ! zone(1) = xc - radius
-      ! zone(2) = xc + radius
-      ! zone(3) = yc - radius
-      ! zone(4) = yc + radius
-      ! zone(5) = zc - radius
-      ! zone(6) = zc + radius
-      zone(1) = 0
-      zone(2) = xphystot
-      zone(3) = 0
-      zone(4) = yphystot
-      zone(5) = 0
-      zone(6) = zphystot
-      
-      zlevel = maxlev
-      call refineZone (zone, zlevel)  
-    end if
-
-    ! Impose flow conditions, where applicable
-    do nb=1,nbMaxProc
-      bID = localBlocks(nb)
-      if (bID.ne.-1) then
-
-        do i=nxmin,nxmax
-          do j=nymin,nymax
-            do k=nzmin,nzmax
-
-              call cellPos (bID, i, j, k, x, y, z)
-              x = x*l_sc;  y = y*l_sc;  z = z*l_sc
-              dist = sqrt((x-xc)**2+(y-yc)**2+(z-zc)**2)   ! phys units
-              dist1 = sqrt((x-xc1)**2+(y-yc1)**2+(z-zc1)**2)   ! phys units
-             
-              if (dist.lt.radius) then
-                  
-                  ! Calculate wind density, velocity and pressure in this cell
-                  vx = 0
-                  vy = 0
-                  vz = 0
-                  pres= density/(mui*AMU)*KB*temp
-
-                  ! DEBUG
-                   !write(logu,*) density, vx/1e5, vy/1e5, vz/1e5, pres
-                  ! write(logu,*) density, pres, mui, AMU, KB, temp
-                  ! DEBUG
-
-                  ! Scale primitives
-                  primit(1) = density/d_sc
-                  primit(2) = vx/v_sc
-                  primit(3) = vy/v_sc
-                  primit(4) = vz/v_sc
-                  primit(5) = pres/p_sc
-
-                  ! Convert primitives and set flow vars for this cell
-                  call prim2flow( primit, uvars(nb,:,i,j,k) )
-
-              end if
-             
-              if (dist1.lt.radius1) then
-                  
-                  ! Calculate wind density, velocity and pressure in this cell
-                  vx = 0
-                  vy = 0
-                  vz = 0
-                  pres= density1/(mu0*AMU)*KB*temp1
-
-                  ! DEBUG
-                   !write(logu,*) density, vx/1e5, vy/1e5, vz/1e5, pres
-                  ! write(logu,*) density, pres, mui, AMU, KB, temp
-                  ! DEBUG
-
-                  ! Scale primitives
-                  primit(1) = density1/d_sc
-                  primit(2) = vx/v_sc
-                  primit(3) = vy/v_sc
-                  primit(4) = vz/v_sc
-                  primit(5) = pres/p_sc
-
-                  ! Convert primitives and set flow vars for this cell
-                  call prim2flow( primit, uvars(nb,:,i,j,k) )
-
-              end if
-
-            end do
-          end do
-        end do
-
-      end if
-    end do
-
-  end subroutine imposeSphere
-
 
 end module userconds
 

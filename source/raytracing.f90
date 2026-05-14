@@ -9,25 +9,8 @@ program Ray_traicing
   ! PROGRAM CONFIGURATION
   ! ============================================================================
 
-  !integer :: outmin, outmax
+  integer :: outmin, outmax
   character(100) :: arg_str
-  ! integer :: outmin, outmax
-
-  ! if (command_argument_count() .ne. 2) then
-  !   write(*,*) "Two command line arguments must be provide: outmin outmax"
-  !   stop
-  ! end if
-
-  ! call get_command_argument(1, arg_str)
-  ! read(arg_str, *) outmin
-
-  ! call get_command_argument(2, arg_str)
-  ! read(arg_str, *) outmax
-
-  
-  ! Limits in the outputs files
-  integer, parameter :: outmin = 210
-  integer, parameter :: outmax = 224
 
   ! mode operation 
   integer, parameter :: ACCEL_ISO = 0
@@ -69,16 +52,15 @@ program Ray_traicing
   ! Rotations around AXIs_Y are rotations around vertical axis ponting up
 
   
-  ! variable definitions to performance the rotations 
-  ! Physical box sizes (cgs units)
-  real, parameter :: xphystot = 60 * AU
-  real, parameter :: yphystot = 60 * AU
-  real, parameter :: zphystot = 60 * AU
+  ! Physical box sizes — must match simulation parameters.f90
+  real, parameter :: xphystot = 80 * AU
+  real, parameter :: yphystot = 80 * AU
+  real, parameter :: zphystot = 80 * AU
 
-  ! Simulation cells
-  integer, parameter :: p_maxcells_x = 256
-  integer, parameter :: p_maxcells_y = 256
-  integer, parameter :: p_maxcells_z = 256
+  ! Simulation cells — must match p_maxcells_x/y/z in parameters.f90
+  integer, parameter :: p_maxcells_x = 384
+  integer, parameter :: p_maxcells_y = 384
+  integer, parameter :: p_maxcells_z = 384
 
   ! Output map size (vision plane resolution)
   integer, parameter :: mapcells_x = 256
@@ -99,7 +81,8 @@ program Ray_traicing
   
   
   ! Path definitions to files
-  character(*), parameter :: datadir   = "/storage2/jsmendezh/raytracing/data"
+  character(*), parameter :: datadir   = "/home/johan/Documentos/Personal/Tesis_UNAM/data"
+  character(*), parameter :: outdir    = "/home/johan/Documentos/Personal/Tesis_UNAM/test_raytracing"
   ! Datafile template
   character(*), parameter :: blockstpl = "BlocksXXX.YYYY"
   ! Grid file template
@@ -123,8 +106,8 @@ program Ray_traicing
 
 
   ! Simulation running parameters
-  ! processors to use 
-  integer, parameter :: nprocs = 32
+  ! processors to use
+  integer, parameter :: nprocs = 8
   ! Number of hidrodynamical equations 
   integer, parameter :: neqtot = 5
 
@@ -158,7 +141,7 @@ program Ray_traicing
   ! ====================================================
 
   ! Xray emissivity coefficients load from tables
-  character(*), parameter :: xray_coefs = "/home/claudio/coefs/coef0.1_10kev.dat"
+  character(*), parameter :: xray_coefs = "coefs/coef0.1_10kev.dat"
   ! Gas parameters (ideal gas):
   real, parameter :: mui = 1.3/2.1
   ! Ionization threshold
@@ -194,6 +177,18 @@ program Ray_traicing
   
 
 
+
+  if (command_argument_count() .ne. 2) then
+    write(*,*) "Usage: raytracing_c <outmin> <outmax>"
+    write(*,*) "  outmin: first snapshot index to process"
+    write(*,*) "  outmax: last snapshot index to process"
+    stop
+  end if
+  call get_command_argument(1, arg_str)
+  read(arg_str, *) outmin
+  call get_command_argument(2, arg_str)
+  read(arg_str, *) outmax
+  write(*,'(a,i0,a,i0)') "Processing snapshots ", outmin, " to ", outmax
 
   write(*,*) "Allocating data arrays ..."
 
@@ -261,7 +256,8 @@ program Ray_traicing
   ! write(*,*) "ux ", los(1), "uy ", los(2), "uz ", los(3)
 
   ! Begins cycle over all outputs of the simulation
-  do nout=outmin,outmax
+  ! Step by 2 to process only even-numbered snapshots (dtout = 0.1 yr)
+  do nout=outmin,outmax,2
     
     write(*,*) "=============================="
     write(*,'(1x,a,i0,a)') "Processing output ", nout, " ..."
@@ -277,7 +273,7 @@ program Ray_traicing
     call trace()
     
     ! Write output map to disk
-    call genfname(0, nout, datadir, outtpl, ".bin", filename)
+    call genfname(0, nout, outdir, outtpl, ".bin", filename)
      
     call writebin(filename, mapcells_x, mapcells_y, outmap)
 
@@ -292,33 +288,39 @@ subroutine trace()
   implicit none
 
   integer :: i, j, k, xi, yi, zi, xi_old, yi_old, zi_old
-  real :: x, y, z, s, tau, xray,rho, kappa
+  real :: x, y, z, s, tau, xray, rho, kappa
+  real :: xray_local, tau_acumulado  ! Variables para raytracing correcto
   real :: r1 = 1.5 * AU ! big one
   real :: r2 = 0.5 * AU ! small one
   real :: dist1, dist2
-  real :: x1, x2, y1, y2, vx1, vy1, vx2, vy2, phase 
+  real :: x1, x2, y1, y2, vx1, vy1, vx2, vy2, phase
   real :: z1 = zphystot/2.0
   real :: z2 = zphystot/2.0
   real :: r(3), ro(3)
 
   ds = dx(p_maxlev)
-  ! kappa = 25 ! cm^2 * g^-1
-  kappa = 1000 ! cm^2 * g^-1
+  ! Opacidad para absorcion de rayos X (cm^2 * g^-1)
+  ! kappa = 0: sin absorcion (prueba)
+  ! kappa = 25, 250, 1000, 2500: diferentes opacidades
+  kappa = 0 ! cm^2 * g^-1
   outmap = 0.0
   do i = 1, p_maxcells_x
   	do j = 1, p_maxcells_y
   		do k = 1, p_maxcells_z
-          
+
           ! Calculate the physical coordinates
           ro(1) = ((float(i)-0.5)/(p_maxcells_x)) * xphystot
           ro(2) = ((float(j)-0.5)/(p_maxcells_y)) * yphystot
           ro(3) = ((float(k)-0.5)/(p_maxcells_z)) * zphystot
           !write(*,*) ro
-          ! test variable to 
-          xray = 0
-          ! parameter over ray 
+
+          ! Inicializar acumuladores para raytracing correcto
+          xray = 0.0
+          tau_acumulado = 0.0
+
+          ! parameter over ray
           s = 0
-          ! Initial position 
+          ! Initial position
           r = ro
           ! auxiliary position to do the mean advance
           xi_old = i
@@ -328,61 +330,82 @@ subroutine trace()
 
           ! trajectory phase
           phase = nout*(0.1 * YR)/Pe + 0.25
-          ! Solve the Kepler problem with numerical integration 
+          ! Solve the Kepler problem with numerical integration
           call computeBinary(phase, x1, y1, x2, y2, vx1, vy1, vx2, vy2)
           ! Distance between first star and observation point
           dist1 = sqrt( (ro(1)-x1)**2 + (ro(2)-y1)**2 + (ro(3)-z1)**2)
-          ! Distance between second star and observation point 
+          ! Distance between second star and observation point
           dist2 = sqrt( (ro(1)-x2)**2 + (ro(2)-y2)**2 + (ro(3)-z2)**2)
-          
-          if (dist1.lt.r1.or.dist2.lt.r2) then                   
+
+          if (dist1.lt.r1.or.dist2.lt.r2) then
            cycle
           end if
 
-
-          call calcxray(aux_density(xi_old, yi_old, zi_old), aux_pressure(xi_old,yi_old,zi_old) ,xray) 
-
-          xray = xray * ds ** 3
-
-          ! ray cycle
+          ! ray cycle - ALGORITMO CORREGIDO
+          ! Suma las contribuciones de emision de cada celda a lo largo del rayo
+          ! aplicando la atenuacion correcta
           do while( r(1) >= 0 .and. r(1) <= xphystot .and. r(2) >= 0 .and. r(2) <= yphystot .and. r(3) >= 0 .and. r(3) <= zphystot )
-            
 
             ! take density value from mapping density
             xi = int(r(1)/xphystot * (p_maxcells_x) + 0.5)
-            yi = int(r(2)/yphystot * (p_maxcells_y) + 0.5) 
+            yi = int(r(2)/yphystot * (p_maxcells_y) + 0.5)
             zi = int(r(3)/zphystot * (p_maxcells_z) + 0.5)
-            ! write(*,*) r/AU
-            ! write(*, *) xi,yi,zi, xi_old, yi_old, zi_old
 
+            ! Validar indices (evitar out of bounds)
+            if (xi < 1 .or. xi > p_maxcells_x .or. &
+                yi < 1 .or. yi > p_maxcells_y .or. &
+                zi < 1 .or. zi > p_maxcells_z) then
+              exit
+            end if
+
+            ! Calcular emision de rayos X en esta celda
+            call calcxray(aux_density(xi, yi, zi), aux_pressure(xi, yi, zi), xray_local)
+
+            ! Validar que la emision sea positiva y finita
+            if (xray_local < 0.0 .or. .not. (xray_local < 1.0e35)) then
+              xray_local = 0.0
+            end if
+
+            ! Calcular densidad promediada para atenuacion
             rho = (aux_density(xi, yi, zi) + aux_density(xi_old, yi_old, zi_old))*0.5
 
-            ! Cumulate the test variable, based only in density 
-            !write(*,*) xi, yi, zi, aux_pressure(xi, yi, zi)
-            
-            ! tau = a * n_den * ds
-            tau = kappa * rho * ds
-            ! xray = xray + xray_aux * ds **3
-            
-            xray = xray * exp(-tau)
+            ! Validar que rho sea positiva
+            if (rho < 0.0) rho = 0.0
 
-            !xray = xray + ds*aux_pressure(xi, yi, zi)
-            !tau = ds*k
-            !xray = xray*exp(-tau) + ds*aux_density(xi, yi, zi)
-            !write(*,*) xi, yi, zi!, aux_density(xi, yi, zi)
+            ! Calcular profundidad optica para este segmento
+            tau = kappa * rho * ds
+
+            ! Limitar tau para evitar underflow en exp(-tau)
+            ! Si tau > 50, exp(-tau) ~ 2e-22 (despreciable)
+            if (tau > 50.0) tau = 50.0
+
+            ! Sumar la contribucion de esta celda, atenuada por el material
+            ! que el rayo ya atraveso
+            xray = xray + xray_local * ds**3 * exp(-tau_acumulado)
+
+            ! Acumular la profundidad optica total
+            tau_acumulado = tau_acumulado + tau
+
+            ! Si el medio se vuelve completamente opaco, salir
+            if (tau_acumulado > 50.0) exit
 
             ! incerment parameter over curve
             s = s + ds
-            ! run over the ray 
+            ! run over the ray
             r = ro + s*los
-            !write(*,*) r/AU, s, ro/AU
-            
+
             ! save the last cell
             xi_old = xi
             yi_old = yi
             zi_old = zi
 
-          end do 
+          end do
+
+          ! Validacion final: asegurar que xray sea finito y positivo
+          if (xray < 0.0 .or. .not. (xray < 1.0e35)) then
+            xray = 0.0
+          end if
+
           ! Project test variable
           call projectCell(xray, i, j, k)
   		end do
@@ -863,8 +886,9 @@ subroutine calcxray(density, presion, xrayj)
   real, intent(in)  :: presion
   real, intent(out) :: xrayj
 
-  integer :: i 
+  integer :: i
   real :: mintemp, maxtemp, temp, T1, T2, C1, C2, CX
+  real :: n_dens  ! Densidad numerica para diagnostico
 
   !Calculate temperature (in cgs)
 
@@ -891,15 +915,24 @@ subroutine calcxray(density, presion, xrayj)
         CX = C1 + (C2-C1)/(T2-T1)*(temp-T1)
         exit
       end if
-    end do 
+    end do
   end if
 
   ! Calculate X-ray emission, j = n^2 * Lambda(T)
   if (temp<ion_thres) then
+    n_dens = density/(mu0*AMU)
     xrayj=(CX*(density/mu0/AMU)**2)!*exp(at*N)
   else
+    n_dens = density/(mui*AMU)
     xrayj=(CX*(density/mui/AMU)**2)!*exp(at*N)
   end if
+
+  ! Diagnostico: imprimir valores extremos
+  if (xrayj > 1.0e10 .or. xrayj < 0.0) then
+    write(*,'(a,5es12.3)') "  WARNING: xrayj extremo - dens, T, n, CX, j:", &
+      density, temp, n_dens, CX, xrayj
+  end if
+
 end subroutine calcxray
 
 end program Ray_traicing

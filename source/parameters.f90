@@ -37,21 +37,24 @@ module parameters
   ! Execution parameters
   ! ============================================
 
-  real, parameter :: tfin = 1.0 * 7.93 * YR    !< Final integration time (s)
-  real, parameter :: dtout = 0.05 * YR     !< Time between data dumps (s)
+  ! MODIFIED: Reduced for stability testing (was 1.0 * 7.93 * YR)
+  real, parameter :: tfin = 0.1 * YR    !< Final integration time (s)
+  real, parameter :: dtout = 0.01 * YR     !< Time between data dumps (s)
 
   !> Perform warm start?
+  ! MODIFIED: Cold start for clean initial conditions (was .true.)
   logical, parameter :: dowarm = .false.
   !> State file to use for warm start
-  character(*), parameter :: warm_file = ""!"/storage2/jsmendezh/WR140/data/State.0064.dat"
+  character(*), parameter :: warm_file = "/home/johan/Documentos/Personal/Tesis_UNAM/data/State.0110.dat"
 
   !> Number of MPI processes to launch
-  integer, parameter :: nProcs = 16
+  integer, parameter :: nProcs = 8
 
   !> Available memory (RAM) *per process*, in MB
   ! This will determine the number of blocks allocated by the code
   ! Note that 1 MB = 1024 kB = 1024*1024 or 2^20 bytes
-  real, parameter :: RAM_per_proc = 1500.0
+  ! ADJUSTED for 384^3 resolution with 30 GB total RAM available
+  real, parameter :: RAM_per_proc = 3000.0
  
   ! ============================================
   ! Adaptive Mesh parameters
@@ -83,9 +86,11 @@ module parameters
   ! Specify the maximum number of cells desired at the highest refinement
   ! level
   ! > MUST BE POWERS OF TWO! <
-  integer, parameter :: p_maxcells_x = 256
-  integer, parameter :: p_maxcells_y = 256
-  integer, parameter :: p_maxcells_z = 256
+  ! ADJUSTED to 384^3: Balance between resolution and available RAM (30 GB total)
+  ! With 80 AU domain: dx_min = 80/384 = 0.208 AU (~2.4 cells per 0.5 AU wind radius)
+  integer, parameter :: p_maxcells_x = 384
+  integer, parameter :: p_maxcells_y = 384
+  integer, parameter :: p_maxcells_z = 384
 
   ! -- OR --
 
@@ -161,7 +166,7 @@ module parameters
   ! the output number. A file extension will be appended automatically
   ! depending on the selected format and should not be given here.
   !> Path to data directory
-  character(*), parameter :: datadir = "/storage2/jsmendezh/raytracing/data"
+  character(*), parameter :: datadir = "/home/johan/Documentos/Personal/Tesis_UNAM/data"
   !> Filename template for Blocks data files
   character(*), parameter :: blockstpl = "BlocksXXX.YYYY"
   !> Filename template for Grid data files
@@ -186,7 +191,8 @@ module parameters
   !!  SOLVER_HLL1: Simplified (first-order) HLL Riemann solver
   !!  SOLVER_HLL: Full (second-order) HLL Riemann solver
   !!  SOLVER_HLLC: HLLC Riemann solver (second-order)
-  integer, parameter :: solver_type = SOLVER_HLL
+  ! STABILITY: Changed to HLLC (more robust for strong shocks in WR 140)
+  integer, parameter :: solver_type = SOLVER_HLLC
 
   !> Slope Limiter (to be used with the HLL/HLLC solvers)
   !! Currently recognized options:
@@ -194,10 +200,11 @@ module parameters
   !!  LIMITER_MINMOD: Minmod limiter - most diffusive
   !!  LIMITER_VANLEER: van Leer limiter
   !!  LIMITER_ALBADA: van Albada limiter
-  !!  LIMITER_UMIST: UMIST limiter 
+  !!  LIMITER_UMIST: UMIST limiter
   !!  LIMITER_WOODWARD: Woodward limiter
   !!  LIMITER_SUPERBEE: Superbee limiter - least diffusive
-  integer, parameter :: limiter_type = LIMITER_VANLEER
+  ! STABILITY: Changed to MINMOD (most diffusive = most stable)
+  integer, parameter :: limiter_type = LIMITER_MINMOD
   
   !> Number of ghost cells (equal to order of solver)
   integer, parameter :: nghost = 2
@@ -207,10 +214,12 @@ module parameters
   integer, parameter :: npassive = 0
 
   !> Courant-Friedrichs-Lewis parameter (0 < CFL < 1.0)
-  real, parameter :: CFL = 0.3
+  ! STABILITY: Reduced from 0.3 to 0.1 for smaller timesteps
+  real, parameter :: CFL = 0.1
 
   !> Artificial viscosity
-  real, parameter :: visc_eta = 5.0E-3
+  ! STABILITY: Increased from 5e-3 to 2e-2 for better shock handling
+  real, parameter :: visc_eta = 2.0E-2
 
 
   ! ============================================
@@ -226,11 +235,12 @@ module parameters
 
   !> Filename with table of cooling coefficients
   ! Several cooling tables are provided in the tables/ subdirectory.
-  character(*), parameter :: cooling_file = "/home/jsmendezh/theta1_Orionis_C/tabla.dat"
+  character(*), parameter :: cooling_file = "/home/johan/Documentos/Personal/Tesis_UNAM/tables/tabla.dat"
   !> Maximum *fractional* thermal energy loss allowed in a single cell
   !! per timestep.
   ! This helps prevent negative pressure errors.
-  real, parameter :: cooling_limit = 0.5
+  ! STABILITY: Reduced from 0.1 to 0.05 (max 5% energy loss per timestep)
+  real, parameter :: cooling_limit = 0.05
 
   ! ============================================
   ! ISM (base flow) Properties
@@ -417,8 +427,7 @@ module parameters
     write(param,'(1x,a,es12.5,a)') "Velocity ", v_sc, " cm s^-1"
     write(param,'(1x,a,es12.5,a)') "Pressure ", p_sc, " erg cm^-3"
     write(param,'(1x,a,es12.5,a)') "Time ", t_sc, " s"
-    write(param,'(1x,a,es12.5,a)') "AMU ", AMU, " s"
-    write(param,'(1x,a,es12.5,a)') "Time ", t_sc, " s"
+    write(param,'(1x,a,es12.5,a)') "AMU ", AMU, " g"
 
 
    end subroutine writeparameters
