@@ -82,7 +82,7 @@ module userconds
   real::wind2_zc = zphystot/2
   real::wind2_vz = 0
   real::wind2_radius = 1.5 * AU        ! AUMENTADO: Mejor resolución (era 0.5 AU)
-  real::wind2_mdot = 1.5e-6 * MSUN/YR  ! Observed range: 1-5e-6, using mid-range value
+  real::wind2_mdot = 5.0e-6 * MSUN/YR  ! Sugawara et al. 2015 (Suzaku X-ray): ~5e-6 Msun/yr
   real::wind2_vinf = 3000 * KPS        ! Observed: ~2500-3000 km/s
   real::wind2_temp = 1.0e5
   real::wind2_mu = mui
